@@ -5,6 +5,7 @@ export const metadata = {
 
 import '../styles/globals.css';
 import Providers from '../components/Providers.jsx';
+import { Analytics } from '@vercel/analytics/next';
 
 export default function RootLayout({ children }) {
 	return (
@@ -13,6 +14,7 @@ export default function RootLayout({ children }) {
 				<Providers>
 					{children}
 				</Providers>
+				<Analytics />
 			</body>
 		</html>
 	);

@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+	--accent: #FF6B00;
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body { font-feature-settings: "ss01","cv02"; }
+
+

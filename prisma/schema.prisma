@@ -1,0 +1,148 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String        @id @default(uuid())
+  email        String        @unique
+  name         String
+  password     String
+  role         Role          @default(VIEWER)
+  plan         SubscriptionPlan @default(FREE)
+  studios      Studio[]      @relation("StudioOwner")
+  members      Member[]
+  comments     Comment[]     @relation("CommentAuthor")
+  assets       Asset[]       @relation("AssetUploader")
+  subscriptions Subscription[]
+  payments     Payment[]
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+}
+
+model Studio {
+  id          String     @id @default(uuid())
+  name        String
+  description String
+  visibility  Visibility @default(PRIVATE)
+  ownerId     String
+  owner       User       @relation("StudioOwner", fields: [ownerId], references: [id])
+  members     Member[]
+  assets      Asset[]
+  comments    Comment[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Member {
+  id        String  @id @default(uuid())
+  userId    String
+  studioId  String
+  role      Role    @default(EDITOR)
+  user      User    @relation(fields: [userId], references: [id])
+  studio    Studio  @relation(fields: [studioId], references: [id])
+
+  @@unique([userId, studioId])
+}
+
+model Asset {
+  id         String   @id @default(uuid())
+  studioId   String
+  type       AssetType
+  filename   String
+  mime       String
+  size       Int
+  url        String
+  uploaderId String
+  studio     Studio   @relation(fields: [studioId], references: [id])
+  uploader   User     @relation("AssetUploader", fields: [uploaderId], references: [id])
+  createdAt  DateTime @default(now())
+}
+
+model Comment {
+  id        String   @id @default(uuid())
+  studioId  String
+  authorId  String
+  content   String
+  assetId   String?
+  studio    Studio   @relation(fields: [studioId], references: [id])
+  author    User     @relation("CommentAuthor", fields: [authorId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+enum Role {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+enum Visibility {
+  PUBLIC
+  PRIVATE
+  INVITE
+}
+
+enum AssetType {
+  AUDIO
+  IMAGE
+  TEXT
+}
+
+model Subscription {
+  id          String            @id @default(uuid())
+  userId      String
+  plan        SubscriptionPlan
+  status      SubscriptionStatus @default(ACTIVE)
+  startDate   DateTime          @default(now())
+  endDate     DateTime?
+  user        User              @relation(fields: [userId], references: [id])
+  payments    Payment[]
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model Payment {
+  id            String        @id @default(uuid())
+  userId        String
+  subscriptionId String?
+  amount        Float
+  method        PaymentMethod
+  status        PaymentStatus @default(PENDING)
+  reference     String?       // Nomor referensi pembayaran
+  proofUrl      String?       // URL bukti transfer/QRIS
+  notes         String?       // Catatan tambahan
+  user          User          @relation(fields: [userId], references: [id])
+  subscription  Subscription? @relation(fields: [subscriptionId], references: [id])
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+enum SubscriptionPlan {
+  FREE
+  PRO
+  ENTERPRISE
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  EXPIRED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  MANDIRI
+  QRIS
+}
+
+enum PaymentStatus {
+  PENDING
+  VERIFIED
+  REJECTED
+  EXPIRED
+}
+
+

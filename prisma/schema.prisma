@@ -11,7 +11,10 @@ model User {
   id           String        @id @default(uuid())
   email        String        @unique
   name         String
-  password     String
+  password     String?       // Nullable untuk OAuth users
+  provider     String?       // 'google', 'github', 'email', etc.
+  providerId   String?       // ID dari provider OAuth
+  avatar       String?       // URL avatar dari OAuth
   role         Role          @default(VIEWER)
   plan         SubscriptionPlan @default(FREE)
   studios      Studio[]      @relation("StudioOwner")

@@ -19,10 +19,28 @@ MuseLab adalah platform kolaborasi kreatif real-time (seperti “Google Docs unt
    JWT_SECRET="change_me_please"
    CORS_ORIGIN="http://localhost:3000"
    ```
+   
+   Untuk OAuth (opsional), tambahkan di `backend/.env`:
+   ```
+   GITHUB_CLIENT_ID="your_github_client_id"
+   GITHUB_CLIENT_SECRET="your_github_client_secret"
+   ```
+   
+   Dan di `frontend/.env.local`:
+   ```
+   NEXT_PUBLIC_GOOGLE_CLIENT_ID="your_google_client_id"
+   NEXT_PUBLIC_GITHUB_CLIENT_ID="your_github_client_id"
+   NEXT_PUBLIC_BACKEND_URL="http://localhost:4000"
+   ```
 3. Install dep:
    ```bash
    cd backend && npm i && npm run prisma:generate && npm run prisma:migrate
    cd ../frontend && npm i
+   ```
+   
+   **Catatan:** Setelah update schema Prisma (misalnya untuk OAuth), jalankan migration:
+   ```bash
+   cd backend && npm run prisma:migrate
    ```
 4. Jalankan:
    ```bash
@@ -53,6 +71,28 @@ Contoh frontend menggunakan token dari `localStorage` (`muselab_token`). Untuk u
 localStorage.setItem('muselab_token', '<Bearer JWT>');
 ```
 Implementasi produksi sebaiknya memakai NextAuth/Clerk/Supabase Auth dan cookie httpOnly.
+
+### OAuth Setup
+
+#### Google OAuth
+1. Buat project di [Google Cloud Console](https://console.cloud.google.com/)
+2. Aktifkan Google+ API
+3. Buat OAuth 2.0 Client ID
+4. Tambahkan authorized redirect URIs: `http://localhost:3000`
+5. Copy Client ID ke `NEXT_PUBLIC_GOOGLE_CLIENT_ID` di `frontend/.env.local`
+
+#### GitHub OAuth
+1. Buka [GitHub Developer Settings](https://github.com/settings/developers)
+2. Klik "New OAuth App"
+3. Set Authorization callback URL: `http://localhost:3000/auth/github/callback`
+4. Copy Client ID ke `NEXT_PUBLIC_GITHUB_CLIENT_ID` di `frontend/.env.local`
+5. Copy Client Secret ke `GITHUB_CLIENT_SECRET` di `backend/.env`
+
+### Endpoint Auth
+- `POST /api/auth/register` — registrasi dengan email/password
+- `POST /api/auth/login` — login dengan email/password
+- `POST /api/auth/oauth` — login/register dengan OAuth (Google/GitHub)
+- `GET /api/auth/github/callback` — callback handler untuk GitHub OAuth
 
 ## Pengembangan Lanjut
 - Ganti storage lokal ke Supabase/Firebase (lihat `backend/src/services/fileService.js`)

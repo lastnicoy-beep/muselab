@@ -35,9 +35,35 @@ function AuthContent() {
 		setLoading(true);
 		setError('');
 		setSuccess('');
+		
+		// Client-side validation
+		if (isRegister) {
+			if (!name || name.trim().length < 2) {
+				setError('Nama harus minimal 2 karakter');
+				setLoading(false);
+				return;
+			}
+			if (password.length < 8) {
+				setError('Password harus minimal 8 karakter');
+				setLoading(false);
+				return;
+			}
+			// Check password strength
+			const hasUpperCase = /[A-Z]/.test(password);
+			const hasLowerCase = /[a-z]/.test(password);
+			const hasNumber = /\d/.test(password);
+			if (!hasUpperCase || !hasLowerCase || !hasNumber) {
+				setError('Password harus mengandung huruf besar, huruf kecil, dan angka');
+				setLoading(false);
+				return;
+			}
+		}
+		
 		try {
 			const endpoint = isRegister ? '/api/auth/register' : '/api/auth/login';
-			const payload = isRegister ? { email, name, password } : { email, password };
+			const payload = isRegister 
+				? { email: email.trim().toLowerCase(), name: name.trim(), password } 
+				: { email: email.trim().toLowerCase(), password };
 			const res = await post(endpoint, payload);
 			login(res.token, res.user);
 			setSuccess(isRegister ? 'Registrasi berhasil! Mengarahkan ke dashboard…' : 'Login sukses! Mengarahkan ke dashboard…');
@@ -48,11 +74,30 @@ function AuthContent() {
 			});
 			setTimeout(() => router.push('/studios'), 800);
 		} catch (err) {
-			const message = err?.data?.message || err?.message || 'Terjadi kesalahan. Coba lagi.';
-			setError(message);
+			let errorMessage = 'Terjadi kesalahan. Coba lagi.';
+			
+			// Handle validation errors from backend
+			if (err?.data?.errors) {
+				const errors = err.data.errors;
+				const errorMessages = Object.entries(errors)
+					.map(([field, messages]) => {
+						if (Array.isArray(messages)) {
+							return messages.join(', ');
+						}
+						return `${field}: ${messages}`;
+					})
+					.join('; ');
+				errorMessage = errorMessages || err.data.message || errorMessage;
+			} else if (err?.data?.message) {
+				errorMessage = err.data.message;
+			} else if (err?.message) {
+				errorMessage = err.message;
+			}
+			
+			setError(errorMessage);
 			pushToast({
 				title: 'Autentikasi gagal',
-				description: typeof message === 'string' ? message : 'Periksa email dan password Anda.',
+				description: errorMessage,
 				variant: 'error'
 			});
 		} finally {
@@ -293,12 +338,17 @@ function AuthContent() {
 									type="password"
 									name="password"
 									autoComplete={isRegister ? 'new-password' : 'current-password'}
-									placeholder="Minimal 6 karakter"
+									placeholder={isRegister ? "Minimal 8 karakter, huruf besar, kecil, dan angka" : "Masukkan password"}
 									value={password}
 									onChange={(event) => setPassword(event.target.value)}
-									minLength={6}
+									minLength={isRegister ? 8 : 1}
 									required
 								/>
+								{isRegister && (
+									<p className="mt-1 text-xs text-neutral-500">
+										Password harus minimal 8 karakter dengan huruf besar, huruf kecil, dan angka
+									</p>
+								)}
 							</label>
 							{error ? <p className="text-xs text-red-400">{error}</p> : null}
 							{success ? <p className="text-xs text-green-400">{success}</p> : null}

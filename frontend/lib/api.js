@@ -26,10 +26,16 @@ function authHeader({ token, headers } = {}) {
 }
 
 function handleError(error) {
+	// Handle axios errors
 	if (error?.response?.data) {
-		throw error.response;
+		throw { data: error.response.data, status: error.response.status };
 	}
-	throw error;
+	// Handle network errors or other errors
+	if (error?.message) {
+		throw { message: error.message, status: error.status || 500 };
+	}
+	// Fallback
+	throw { message: 'Network error or server unavailable', status: 500 };
 }
 
 export async function get(path, { auth, token, params, headers } = {}) {

@@ -46,6 +46,11 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true, service: 'muselab-backend' });
 });
 
+// Root test route
+app.get('/', (_req, res) => {
+  res.send('Server is running');
+});
+
 app.use('/api/auth', authLimiter, authRoutes);
 app.use('/api/studios', studioRoutes);
 app.use('/api/assets', assetRoutes);

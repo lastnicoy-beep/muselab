@@ -36,8 +36,7 @@ function GitHubCallbackContent() {
 
 			try {
 				// Exchange code dengan backend untuk mendapatkan user data dari GitHub
-				const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:4000';
-				const response = await fetch(`${backendUrl}/api/auth/github/callback?code=${code}`, {
+				const response = await fetch(`/api/auth/github/callback?code=${code}`, {
 					method: 'GET',
 					headers: {
 						'Content-Type': 'application/json'

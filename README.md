@@ -54,16 +54,38 @@ Frontend: `http://localhost:3000`
 Backend: `http://localhost:4000`
 
 ## Ringkasan Endpoint Backend
-- `GET /api/studios` — daftar studio milik/diikuti user (dengan owner, anggota, dan metrik).
-- `GET /api/studios/public` — showcase publik tersortir terbaru.
-- `GET /api/studios/insights/summary` — statistik studio/asset/comment milik user.
-- `POST /api/studios` — buat studio baru (role ADMIN/EDITOR).
-- `GET /api/studios/:id` — detail studio lengkap (asset, komentar, anggota).
-- `POST /api/assets/upload` — unggah asset (validasi tipe file sesuai kategori).
-- `DELETE /api/assets/:id` — hapus asset (hanya uploader/Admin).
-- `GET /api/comments/studio/:studioId` — komentar lengkap + author.
-- `POST /api/comments` — buat komentar baru (response termasuk data author).
-- `DELETE /api/comments/:id` — hapus komentar (author/Admin).
+
+### Studios
+- `GET /api/studios` — daftar studio milik/diikuti user (dengan pagination & search)
+- `GET /api/studios/public` — showcase publik tersortir terbaru (dengan pagination & search)
+- `GET /api/studios/insights/summary` — statistik studio/asset/comment milik user
+- `POST /api/studios` — buat studio baru (role ADMIN/EDITOR, dengan plan limits)
+- `GET /api/studios/:id` — detail studio lengkap (asset, komentar, anggota)
+- `PATCH /api/studios/:id` — update studio (owner/admin studio)
+- `DELETE /api/studios/:id` — hapus studio (owner/admin)
+
+### Assets
+- `POST /api/assets/upload` — unggah asset (validasi tipe & ukuran file)
+- `GET /api/assets/studio/:studioId` — list assets dengan pagination & filter
+- `DELETE /api/assets/:id` — hapus asset (uploader/owner/admin)
+
+### Comments
+- `GET /api/comments/studio/:studioId` — komentar dengan pagination & filter
+- `POST /api/comments` — buat komentar baru
+- `DELETE /api/comments/:id` — hapus komentar (author/owner/admin)
+
+### Members (Studio Membership)
+- `GET /api/members/studio/:studioId` — daftar anggota studio
+- `POST /api/members/studio/:studioId` — tambah anggota baru (owner/admin studio)
+- `PATCH /api/members/:memberId/studio/:studioId` — update role anggota
+- `DELETE /api/members/:memberId/studio/:studioId` — hapus anggota
+
+### Payments
+- `POST /api/payments` — buat payment untuk subscription
+- `GET /api/payments/my` — daftar payment user (dengan pagination)
+- `GET /api/payments/:id` — detail payment
+- `PUT /api/payments/:id/proof` — upload bukti pembayaran
+- `PUT /api/payments/:id/verify` — verify payment (admin only)
 
 ## Catatan Auth
 Contoh frontend menggunakan token dari `localStorage` (`muselab_token`). Untuk uji cepat, Anda bisa menyuntik token JWT manual:
@@ -94,9 +116,57 @@ Implementasi produksi sebaiknya memakai NextAuth/Clerk/Supabase Auth dan cookie 
 - `POST /api/auth/oauth` — login/register dengan OAuth (Google/GitHub)
 - `GET /api/auth/github/callback` — callback handler untuk GitHub OAuth
 
+## Fitur Utama
+
+### Authentication & Authorization
+- ✅ Email/Password registration & login
+- ✅ OAuth (Google & GitHub)
+- ✅ JWT-based authentication
+- ✅ Role-based access control (ADMIN, EDITOR, VIEWER)
+- ✅ Plan-based limits (FREE, PRO, ENTERPRISE)
+
+### Studio Management
+- ✅ Create, read, update, delete studios
+- ✅ Studio visibility (PUBLIC, PRIVATE, INVITE)
+- ✅ Studio membership management
+- ✅ Member roles (ADMIN, EDITOR, VIEWER)
+- ✅ Plan-based studio limits (FREE: 1 studio, 3 members)
+
+### Asset Management
+- ✅ Upload assets (AUDIO, IMAGE, TEXT)
+- ✅ File size limits (AUDIO: 50MB, IMAGE: 10MB, TEXT: 5MB)
+- ✅ File type validation
+- ✅ Asset pagination & filtering
+- ✅ Access control per studio
+
+### Comments & Collaboration
+- ✅ Real-time comments via Socket.io
+- ✅ Comment pagination
+- ✅ Asset-specific comments
+- ✅ Access control
+
+### Payment & Subscription
+- ✅ Payment creation (MANDIRI, QRIS)
+- ✅ Payment proof upload
+- ✅ Admin payment verification
+- ✅ Subscription management
+- ✅ Plan upgrades
+
+### Security & Performance
+- ✅ Input validation (Zod)
+- ✅ Rate limiting
+- ✅ XSS protection
+- ✅ SQL injection prevention
+- ✅ File upload security
+- ✅ Database indexes
+- ✅ Pagination untuk semua list endpoints
+- ✅ Search & filter capabilities
+
 ## Pengembangan Lanjut
 - Ganti storage lokal ke Supabase/Firebase (lihat `backend/src/services/fileService.js`)
-- Tambah role & perizinan granular (`authMiddleware.js`)
-- Tambah waveform viewer, remix/fork, AI assist
+- Tambah waveform viewer untuk audio
+- Tambah remix/fork functionality
+- AI assist features
+- Real-time collaboration improvements
 
 

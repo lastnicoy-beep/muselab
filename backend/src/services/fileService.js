@@ -13,22 +13,42 @@ if (!fs.existsSync(UPLOAD_DIR)) {
 }
 
 export async function persistUpload(file) {
-  const ext = mime.extension(file.mimetype) || 'bin';
-  const filename = `${uuid()}.${ext}`;
-  const dest = path.join(UPLOAD_DIR, filename);
-  await fs.promises.rename(file.path, dest);
-  return {
-    filename,
-    mimeType: file.mimetype,
-    size: file.size,
-    publicUrl: `/uploads/${filename}`
-  };
+  try {
+    const ext = mime.extension(file.mimetype) || 'bin';
+    const filename = `${uuid()}.${ext}`;
+    const dest = path.join(UPLOAD_DIR, filename);
+    
+    // Ensure upload directory exists
+    if (!fs.existsSync(UPLOAD_DIR)) {
+      await fs.promises.mkdir(UPLOAD_DIR, { recursive: true });
+    }
+    
+    await fs.promises.rename(file.path, dest);
+    return {
+      filename,
+      mimeType: file.mimetype,
+      size: file.size,
+      publicUrl: `/uploads/${filename}`
+    };
+  } catch (error) {
+    // Clean up temp file if rename fails
+    if (file.path && fs.existsSync(file.path)) {
+      await fs.promises.unlink(file.path).catch(() => {});
+    }
+    throw error;
+  }
 }
 
 export async function removeStoredFile(filename) {
+  if (!filename) return;
   const target = path.join(UPLOAD_DIR, filename);
-  if (fs.existsSync(target)) {
-    await fs.promises.unlink(target);
+  try {
+    if (fs.existsSync(target)) {
+      await fs.promises.unlink(target);
+    }
+  } catch (error) {
+    console.error(`Failed to remove file ${filename}:`, error);
+    // Don't throw - file cleanup failure shouldn't break the flow
   }
 }
 

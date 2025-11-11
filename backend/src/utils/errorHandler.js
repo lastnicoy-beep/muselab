@@ -1,4 +1,9 @@
 export function handleControllerError(res, error, fallbackMessage = 'Internal server error') {
+  // Log error for debugging
+  console.error('Controller error:', {
+    message: error?.message,
+    stack: process.env.NODE_ENV === 'development' ? error?.stack : undefined
+  });
   // eslint-disable-next-line no-console
   console.error(error);
   const status = error?.status || error?.statusCode || 500;

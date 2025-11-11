@@ -19,24 +19,41 @@ export async function createPayment(req, res) {
   try {
     const parsed = createPaymentSchema.safeParse(req.body);
     if (!parsed.success) {
-      return res.status(400).json({ message: 'Invalid payment data', errors: parsed.error.flatten() });
+      return res.status(400).json({ 
+        message: 'Validation failed',
+        errors: parsed.error.flatten().fieldErrors 
+      });
     }
 
     const { plan, method, amount } = parsed.data;
     const userId = req.user.id;
     const finalAmount = amount || PLAN_PRICES[plan];
 
+    // Check if user already has active subscription
+    const activeSubscription = await prisma.subscription.findFirst({
+      where: {
+        userId,
+        status: 'ACTIVE',
+        endDate: { gt: new Date() }
+      }
+    });
+
+    if (activeSubscription && activeSubscription.plan === plan) {
+      return res.status(400).json({ message: 'Anda sudah memiliki subscription aktif untuk plan ini' });
+    }
+
     // Create subscription record
     const subscription = await prisma.subscription.create({
       data: {
         userId,
         plan,
-        status: 'ACTIVE',
+        status: 'PENDING', // Will be ACTIVE after payment verification
         endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days
       }
     });
 
     // Create payment record
+    const reference = generateReference(method);
     const payment = await prisma.payment.create({
       data: {
         userId,
@@ -44,42 +61,62 @@ export async function createPayment(req, res) {
         amount: finalAmount,
         method,
         status: 'PENDING',
-        reference: generateReference(method)
+        reference
       },
       include: {
         subscription: true
       }
     });
 
-    // Update user plan (will be verified later)
-    await prisma.user.update({
-      where: { id: userId },
-      data: { plan }
-    });
-
     res.status(201).json({
       payment,
-      paymentInfo: getPaymentInfo(method, finalAmount, payment.reference)
+      paymentInfo: getPaymentInfoHelper(method, finalAmount, reference)
     });
   } catch (error) {
     console.error('Payment creation error:', error);
-    res.status(500).json({ message: 'Failed to create payment', error: error.message });
+    res.status(500).json({ message: 'Failed to create payment' });
   }
 }
 
 export async function getMyPayments(req, res) {
   try {
     const userId = req.user.id;
-    const payments = await prisma.payment.findMany({
-      where: { userId },
-      include: {
-        subscription: true
-      },
-      orderBy: { createdAt: 'desc' }
+    const { status, page = '1', limit = '20' } = req.query;
+    
+    const pageNum = parseInt(page, 10);
+    const limitNum = Math.min(parseInt(limit, 10), 50);
+    const skip = (pageNum - 1) * limitNum;
+    
+    const where = {
+      userId,
+      ...(status && { status })
+    };
+    
+    const [payments, total] = await Promise.all([
+      prisma.payment.findMany({
+        where,
+        include: {
+          subscription: true
+        },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limitNum
+      }),
+      prisma.payment.count({ where })
+    ]);
+    
+    res.json({
+      payments,
+      pagination: {
+        page: pageNum,
+        limit: limitNum,
+        total,
+        totalPages: Math.ceil(total / limitNum)
+      }
     });
-    res.json(payments);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch payments', error: error.message });
+    console.error('Get payments error:', error);
+    res.status(500).json({ message: 'Failed to fetch payments' });
   }
 }
 
@@ -106,23 +143,34 @@ export async function getPaymentInfo(req, res) {
 
     const paymentDetails = {
       ...payment,
-      paymentInfo: getPaymentInfo(payment.method, payment.amount, payment.reference)
+      paymentInfo: getPaymentInfoHelper(payment.method, payment.amount, payment.reference)
     };
 
     res.json(paymentDetails);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to fetch payment info', error: error.message });
+    console.error('Get payment info error:', error);
+    res.status(500).json({ message: 'Failed to fetch payment info' });
   }
 }
+
+const proofSchema = z.object({
+  proofUrl: z.string().url().max(500),
+  notes: z.string().max(500).optional()
+});
 
 export async function uploadProof(req, res) {
   try {
     const { id } = req.params;
-    const { proofUrl, notes } = req.body;
-
-    if (!proofUrl) {
-      return res.status(400).json({ message: 'Proof URL is required' });
+    const parsed = proofSchema.safeParse(req.body);
+    
+    if (!parsed.success) {
+      return res.status(400).json({ 
+        message: 'Validation failed',
+        errors: parsed.error.flatten().fieldErrors 
+      });
     }
+    
+    const { proofUrl, notes } = parsed.data;
 
     const payment = await prisma.payment.findUnique({
       where: { id }
@@ -136,6 +184,10 @@ export async function uploadProof(req, res) {
       return res.status(403).json({ message: 'Forbidden' });
     }
 
+    if (payment.status === 'VERIFIED') {
+      return res.status(400).json({ message: 'Payment already verified' });
+    }
+
     const updated = await prisma.payment.update({
       where: { id },
       data: {
@@ -147,18 +199,29 @@ export async function uploadProof(req, res) {
 
     res.json(updated);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to upload proof', error: error.message });
+    console.error('Upload proof error:', error);
+    res.status(500).json({ message: 'Failed to upload proof' });
   }
 }
+
+const verifySchema = z.object({
+  status: z.enum(['VERIFIED', 'REJECTED']),
+  notes: z.string().max(500).optional()
+});
 
 export async function verifyPayment(req, res) {
   try {
     const { id } = req.params;
-    const { status } = req.body;
-
-    if (!['VERIFIED', 'REJECTED'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
+    const parsed = verifySchema.safeParse(req.body);
+    
+    if (!parsed.success) {
+      return res.status(400).json({ 
+        message: 'Validation failed',
+        errors: parsed.error.flatten().fieldErrors 
+      });
     }
+    
+    const { status, notes } = parsed.data;
 
     const payment = await prisma.payment.findUnique({
       where: { id },
@@ -171,10 +234,23 @@ export async function verifyPayment(req, res) {
 
     const updated = await prisma.payment.update({
       where: { id },
-      data: { status }
+      data: { 
+        status,
+        notes: notes || payment.notes
+      }
     });
 
     if (status === 'VERIFIED' && payment.subscription) {
+      // Cancel any other active subscriptions
+      await prisma.subscription.updateMany({
+        where: {
+          userId: payment.userId,
+          status: 'ACTIVE',
+          id: { not: payment.subscriptionId }
+        },
+        data: { status: 'CANCELLED' }
+      });
+
       await prisma.subscription.update({
         where: { id: payment.subscriptionId },
         data: { status: 'ACTIVE' }
@@ -184,24 +260,30 @@ export async function verifyPayment(req, res) {
         where: { id: payment.userId },
         data: { plan: payment.subscription.plan }
       });
+    } else if (status === 'REJECTED' && payment.subscription) {
+      await prisma.subscription.update({
+        where: { id: payment.subscriptionId },
+        data: { status: 'CANCELLED' }
+      });
     }
 
     res.json(updated);
   } catch (error) {
-    res.status(500).json({ message: 'Failed to verify payment', error: error.message });
+    console.error('Verify payment error:', error);
+    res.status(500).json({ message: 'Failed to verify payment' });
   }
 }
 
 function generateReference(method) {
   const timestamp = Date.now();
-  const random = Math.floor(Math.random() * 1000);
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, '0');
   if (method === 'MANDIRI') {
     return `MDR${timestamp}${random}`;
   }
   return `QRIS${timestamp}${random}`;
 }
 
-function getPaymentInfo(method, amount, reference) {
+function getPaymentInfoHelper(method, amount, reference) {
   if (method === 'MANDIRI') {
     return {
       method: 'MANDIRI',

@@ -40,3 +40,12 @@ Thumbs.db
 # Prisma
 prisma/migrations/
 
+# Uploads
+uploads/
+backend/uploads/
+frontend/uploads/
+
+# Temporary files
+*.tmp
+*.temp
+

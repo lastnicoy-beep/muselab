@@ -31,7 +31,10 @@ export function registerSocketHandlers(io) {
     try {
       const token = getTokenFromHandshake(socket);
       if (!token) return next(new Error('Unauthorized'));
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
+      if (!process.env.JWT_SECRET) {
+        return next(new Error('JWT_SECRET not configured'));
+      }
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
       socket.data.user = {
         id: decoded.sub,
         name: decoded.name || 'User',

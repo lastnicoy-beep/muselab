@@ -11,6 +11,7 @@ import assetRoutes from './routes/assetRoutes.js';
 import commentRoutes from './routes/commentRoutes.js';
 import authRoutes from './routes/authRoutes.js';
 import paymentRoutes from './routes/paymentRoutes.js';
+import memberRoutes from './routes/memberRoutes.js';
 import { apiLimiter, authLimiter } from './middleware/rateLimiter.js';
 import { errorHandler, notFoundHandler } from './middleware/errorMiddleware.js';
 
@@ -29,7 +30,15 @@ app.use(morgan('dev'));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cookieParser());
-app.use('/uploads', express.static('uploads', { maxAge: '1d', fallthrough: false }));
+// Serve uploaded files
+app.use('/uploads', express.static('uploads', { 
+  maxAge: '7d', 
+  fallthrough: false,
+  setHeaders: (res, path) => {
+    // Security headers for file serving
+    res.set('X-Content-Type-Options', 'nosniff');
+  }
+}));
 
 app.use('/api', apiLimiter);
 
@@ -42,6 +51,7 @@ app.use('/api/studios', studioRoutes);
 app.use('/api/assets', assetRoutes);
 app.use('/api/comments', commentRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/members', memberRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

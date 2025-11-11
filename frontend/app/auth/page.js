@@ -20,6 +20,7 @@ function AuthContent() {
 	const [oauthLoading, setOauthLoading] = useState(null);
 	const [error, setError] = useState('');
 	const [success, setSuccess] = useState('');
+	const googleConfigured = Boolean(process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID);
 
 	useEffect(() => {
 		const paramMode = searchParams.get('mode');
@@ -110,11 +111,25 @@ function AuthContent() {
 		setError('');
 		setSuccess('');
 		try {
+			const providerId = String(data.id || data.sub || '').trim();
+			const email = data.email?.toLowerCase()?.trim();
+			const name = data.name?.trim() || data.login || email;
+
+			if (!providerId) {
+				throw new Error('ID pengguna dari provider tidak ditemukan.');
+			}
+			if (!email) {
+				throw new Error('Email tidak tersedia dari akun OAuth ini. Pastikan email publik atau gunakan metode lain.');
+			}
+			if (!name) {
+				throw new Error('Nama tidak tersedia dari akun OAuth ini.');
+			}
+
 			const oauthData = {
 				provider,
-				providerId: data.id || data.sub,
-				email: data.email,
-				name: data.name,
+				providerId,
+				email,
+				name,
 				avatar: data.picture || data.avatar_url
 			};
 			const res = await post('/api/auth/oauth', oauthData);
@@ -156,6 +171,16 @@ function AuthContent() {
 			setOauthLoading(null);
 		}
 	});
+
+	const handleGoogleButton = () => {
+		if (!googleConfigured) {
+			setError('Google OAuth belum dikonfigurasi. Silakan gunakan email & password atau metode login lainnya.');
+			return;
+		}
+		setOauthLoading('google');
+		setError('');
+		googleLogin();
+	};
 
 	async function handleGitHubLogin() {
 		setOauthLoading('github');
@@ -248,8 +273,8 @@ function AuthContent() {
 						<div className="mt-6 space-y-3">
 							<button
 								type="button"
-								onClick={() => googleLogin()}
-								disabled={oauthLoading === 'google' || loading}
+								onClick={handleGoogleButton}
+								disabled={!googleConfigured || oauthLoading === 'google' || loading}
 								className="w-full flex items-center justify-center gap-3 rounded-xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-medium text-white transition hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-60"
 							>
 								{oauthLoading === 'google' ? (
@@ -272,6 +297,11 @@ function AuthContent() {
 									</>
 								)}
 							</button>
+							{!googleConfigured ? (
+								<p className="text-xs text-neutral-500">
+									Google OAuth belum tersedia. Gunakan email & password atau hubungi administrator.
+								</p>
+							) : null}
 							<button
 								type="button"
 								onClick={handleGitHubLogin}
@@ -381,9 +411,12 @@ function AuthContent() {
 
 export default function AuthPage() {
 	const googleClientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || '';
+	const providerClientId = googleClientId && googleClientId.trim().length > 0
+		? googleClientId
+		: 'disabled-client-id.apps.googleusercontent.com';
 	
 	return (
-		<GoogleOAuthProvider clientId={googleClientId}>
+		<GoogleOAuthProvider clientId={providerClientId}>
 			<Suspense fallback={<div className="min-h-screen bg-neutral-950 text-white flex items-center justify-center">Memuat…</div>}>
 				<AuthContent />
 			</Suspense>

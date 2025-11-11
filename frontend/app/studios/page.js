@@ -33,6 +33,7 @@ export default function StudiosPage() {
 	const [search, setSearch] = useState('');
 	const [sort, setSort] = useState('recent');
 	const [showCreate, setShowCreate] = useState(false);
+	const [pagination, setPagination] = useState(null);
 	const [insights, setInsights] = useState(null);
 
 	useEffect(() => {
@@ -42,10 +43,13 @@ export default function StudiosPage() {
 			setError('');
 			try {
 				const res = await get('/api/studios', { auth: true, token });
-				setStudios(res);
+				const studioList = Array.isArray(res) ? res : res?.studios ?? [];
+				setStudios(studioList);
+				setPagination(res?.pagination ?? null);
 			} catch (err) {
 				const message = err?.data?.message || 'Gagal memuat studio.';
 				setError(typeof message === 'string' ? message : 'Gagal memuat studio.');
+				setPagination(null);
 			} finally {
 				setLoading(false);
 			}
@@ -98,10 +102,12 @@ export default function StudiosPage() {
 	}, [studios, filter, search, sort]);
 
 	const metrics = useMemo(() => ({
-		studioCount: insights ? (insights.ownedStudios ?? 0) + (insights.membershipStudios ?? 0) : studios.length,
+		studioCount: insights
+			? (insights.ownedStudios ?? 0) + (insights.membershipStudios ?? 0)
+			: pagination?.total ?? studios.length,
 		totalAssets: insights?.totalAssets ?? totals.assets,
 		totalComments: insights?.totalComments ?? totals.comments
-	}), [insights, studios.length, totals]);
+	}), [insights, studios.length, totals, pagination]);
 
 	if (!authLoading && !isAuthenticated) {
 		return (
@@ -254,7 +260,23 @@ export default function StudiosPage() {
 				onClose={() => setShowCreate(false)}
 				token={token}
 				onCreated={(studio) => {
-					setStudios((prev) => [studio, ...prev]);
+					setStudios((prev) => {
+						if (prev.some((item) => item.id === studio.id)) {
+							return prev;
+						}
+						return [studio, ...prev];
+					});
+					setPagination((prev) => {
+						if (!prev) return prev;
+						const limit = prev.limit ?? 0;
+						const baseTotal = typeof prev.total === 'number' ? prev.total : limit || 0;
+						const nextTotal = baseTotal + 1;
+						return {
+							...prev,
+							total: nextTotal,
+							totalPages: limit ? Math.max(prev.totalPages ?? 1, Math.ceil(nextTotal / limit)) : prev.totalPages
+						};
+					});
 					setShowCreate(false);
 				}}
 			/>

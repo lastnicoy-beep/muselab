@@ -3,10 +3,19 @@ export function notFoundHandler(_req, res) {
 }
 
 export function errorHandler(err, _req, res, _next) {
-  // eslint-disable-next-line no-console
-  console.error(err);
+  // Log error dengan detail untuk debugging (jangan expose ke client)
+  console.error('Error:', {
+    message: err?.message,
+    stack: process.env.NODE_ENV === 'development' ? err?.stack : undefined,
+    status: err?.status || err?.statusCode
+  });
+
+  // Jangan expose error details ke client untuk security
   const status = err?.status || err?.statusCode || 500;
-  const message = err?.message || 'Terjadi kesalahan pada server';
+  const message = status === 500 
+    ? 'Internal server error' 
+    : (err?.message || 'Terjadi kesalahan pada server');
+  
   res.status(status).json({ message });
 }
 

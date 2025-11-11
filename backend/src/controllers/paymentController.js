@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
-
-const prisma = new PrismaClient();
+import prisma from '../utils/prisma.js';
 
 const MANDIRI_ACCOUNT = '1080028325505';
 const QRIS_NMID = 'ID1025445733781';

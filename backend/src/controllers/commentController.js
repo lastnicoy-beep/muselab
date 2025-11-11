@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
+import prisma from '../utils/prisma.js';
 import { handleControllerError } from '../utils/errorHandler.js';
-
-const prisma = new PrismaClient();
 
 const commentSchema = z.object({
   studioId: z.string().uuid(),

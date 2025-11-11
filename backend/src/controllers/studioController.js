@@ -1,8 +1,6 @@
-import { PrismaClient } from '@prisma/client';
 import { z } from 'zod';
+import prisma from '../utils/prisma.js';
 import { handleControllerError } from '../utils/errorHandler.js';
-
-const prisma = new PrismaClient();
 
 const createStudioSchema = z.object({
   name: z.string().min(2),
@@ -98,6 +96,17 @@ export async function getStudio(req, res) {
 export async function updateStudio(req, res) {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
+    
+    // Check if user owns the studio or is admin
+    const existing = await prisma.studio.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ message: 'Studio tidak ditemukan' });
+    }
+    if (existing.ownerId !== userId && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ message: 'Tidak memiliki akses untuk mengupdate studio ini' });
+    }
+
     const parsed = createStudioSchema.partial().safeParse(req.body);
     if (!parsed.success) return res.status(400).json(parsed.error.flatten());
     const studio = await prisma.studio.update({
@@ -114,6 +123,17 @@ export async function updateStudio(req, res) {
 export async function deleteStudio(req, res) {
   try {
     const { id } = req.params;
+    const userId = req.user.id;
+    
+    // Check if user owns the studio or is admin
+    const existing = await prisma.studio.findUnique({ where: { id } });
+    if (!existing) {
+      return res.status(404).json({ message: 'Studio tidak ditemukan' });
+    }
+    if (existing.ownerId !== userId && req.user.role !== 'ADMIN') {
+      return res.status(403).json({ message: 'Tidak memiliki akses untuk menghapus studio ini' });
+    }
+
     await prisma.studio.delete({ where: { id } });
     res.json({ ok: true });
   } catch (error) {
